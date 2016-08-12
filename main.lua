@@ -5,8 +5,8 @@ require 'optim'
 opt = {
    dataset = 'lsun',       -- imagenet / lsun / folder
    batchSize = 64,
-   loadSize = 96,
-   fineSize = 64,
+   loadSize = 129,
+   fineSize = 128,
    nz = 100,               -- #  of dim for Z
    ngf = 64,               -- #  of gen filters in first conv layer
    ndf = 64,               -- #  of discrim filters in first conv layer
@@ -62,40 +62,48 @@ local SpatialFullConvolution = nn.SpatialFullConvolution
 
 local netG = nn.Sequential()
 -- input is Z, going into a convolution
-netG:add(SpatialFullConvolution(nz, ngf * 8, 4, 4))
+netG:add(SpatialFullConvolution(nz, ngf * 16, 4, 4))
+netG:add(SpatialBatchNormalization(ngf * 16)):add(nn.ReLU(true))
+-- state size: (ngf*16) x 4 x 4
+netG:add(SpatialFullConvolution(ngf * 16, ngf * 8, 4, 4, 2, 2, 1, 1))
 netG:add(SpatialBatchNormalization(ngf * 8)):add(nn.ReLU(true))
--- state size: (ngf*8) x 4 x 4
+-- state size: (ngf*8) x 8 x 8
 netG:add(SpatialFullConvolution(ngf * 8, ngf * 4, 4, 4, 2, 2, 1, 1))
 netG:add(SpatialBatchNormalization(ngf * 4)):add(nn.ReLU(true))
--- state size: (ngf*4) x 8 x 8
+-- state size: (ngf*4) x 16 x 16
 netG:add(SpatialFullConvolution(ngf * 4, ngf * 2, 4, 4, 2, 2, 1, 1))
 netG:add(SpatialBatchNormalization(ngf * 2)):add(nn.ReLU(true))
--- state size: (ngf*2) x 16 x 16
+-- state size: (ngf * 2) x 32 x 32
 netG:add(SpatialFullConvolution(ngf * 2, ngf, 4, 4, 2, 2, 1, 1))
 netG:add(SpatialBatchNormalization(ngf)):add(nn.ReLU(true))
--- state size: (ngf) x 32 x 32
+-- state size: (ngf) x 64 x 64
 netG:add(SpatialFullConvolution(ngf, nc, 4, 4, 2, 2, 1, 1))
 netG:add(nn.Tanh())
--- state size: (nc) x 64 x 64
+-- state size: (nc) x 128 x 128
 
 netG:apply(weights_init)
 
 local netD = nn.Sequential()
 
--- input is (nc) x 64 x 64
+local netD = nn.Sequential()
+
+-- input is (nc) x 128 x 128
 netD:add(SpatialConvolution(nc, ndf, 4, 4, 2, 2, 1, 1))
 netD:add(nn.LeakyReLU(0.2, true))
--- state size: (ndf) x 32 x 32
+-- state size: (ndf) x 64 x 64
 netD:add(SpatialConvolution(ndf, ndf * 2, 4, 4, 2, 2, 1, 1))
 netD:add(SpatialBatchNormalization(ndf * 2)):add(nn.LeakyReLU(0.2, true))
--- state size: (ndf*2) x 16 x 16
+-- state size: (ndf*2) x 32 x 32
 netD:add(SpatialConvolution(ndf * 2, ndf * 4, 4, 4, 2, 2, 1, 1))
 netD:add(SpatialBatchNormalization(ndf * 4)):add(nn.LeakyReLU(0.2, true))
--- state size: (ndf*4) x 8 x 8
+-- state size: (ndf*4) x 16 x 16
 netD:add(SpatialConvolution(ndf * 4, ndf * 8, 4, 4, 2, 2, 1, 1))
 netD:add(SpatialBatchNormalization(ndf * 8)):add(nn.LeakyReLU(0.2, true))
--- state size: (ndf*8) x 4 x 4
-netD:add(SpatialConvolution(ndf * 8, 1, 4, 4))
+-- state size: (ndf*8) x 8 x 8
+netD:add(SpatialConvolution(ndf * 8, ndf * 16, 4, 4, 2, 2, 1, 1))
+netD:add(SpatialBatchNormalization(ndf * 16)):add(nn.LeakyReLU(0.2, true))
+-- state size: (ndf*16) x 4 x 4
+netD:add(SpatialConvolution(ndf * 16, 1, 4, 4))
 netD:add(nn.Sigmoid())
 -- state size: 1 x 1 x 1
 netD:add(nn.View(1):setNumInputDims(3))
