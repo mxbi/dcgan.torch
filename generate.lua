@@ -14,6 +14,12 @@ opt = {
     display = 1,           -- Display image: 0 = false, 1 = true
     nz = 100,              
 }
+
+if opt.gpu > 0 then
+  require 'cunn'
+  require 'cudnn'
+end
+
 for k,v in pairs(opt) do opt[k] = tonumber(os.getenv(k)) or os.getenv(k) or opt[k] end
 print(opt)
 if opt.display == 0 then opt.display = false end
